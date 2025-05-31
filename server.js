@@ -7,32 +7,20 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM"; // Replace with your real API key
-const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2"; // Replace with your real user ID
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM";
+const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2";
 
 let raffleTickets = [];
 let lastSeenData = {};
 let initialized = false;
 let latestRawData = [];
 
+// 👇 TEST PERIOD: May 25 – May 31
 function getCurrentRaffleWindow() {
-  const now = new Date();
-  const nowJST = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const year = nowJST.getUTCFullYear();
-  const month = nowJST.getUTCMonth();
-
-  const baseStart = new Date(Date.UTC(year, month, 1, 15, 1, 0)); // 00:01 JST = 15:01 UTC
+  const customStart = new Date(Date.UTC(2025, 4, 25, 15, 1, 0)); // 2025-05-25 15:01 UTC = 00:01 JST
   const duration = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
-
-  for (let i = 0; i < 4; i++) {
-    const start = new Date(baseStart.getTime() + i * duration);
-    const end = new Date(start.getTime() + duration);
-    if (now >= start && now < end) {
-      return { start, end };
-    }
-  }
-
-  return { start: null, end: null };
+  const customEnd = new Date(customStart.getTime() + duration);
+  return { start: customStart, end: customEnd };
 }
 
 function shuffle(array) {
@@ -44,10 +32,6 @@ function shuffle(array) {
 
 async function fetchAndUpdateTickets() {
   const { start, end } = getCurrentRaffleWindow();
-  if (!start || !end) {
-    console.log("⛔ Outside raffle period (29th–31st)");
-    return;
-  }
 
   try {
     const response = await axios.get(apiUrl, {
@@ -91,7 +75,7 @@ async function fetchAndUpdateTickets() {
       initialized = true;
     }
 
-    console.log(`[✅] Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount}`);
+    console.log(`[✅] Updated | Total Tickets: ${raffleTickets.length} | New: ${newTicketsCount}`);
   } catch (err) {
     console.error("[❌] Fetch failed:", err.message);
   }
@@ -99,7 +83,7 @@ async function fetchAndUpdateTickets() {
 
 // ROUTES
 app.get("/", (req, res) => {
-  res.send("🎟️ Roobet Raffle API running");
+  res.send("🎟️ Roobet Raffle API running (Test Mode)");
 });
 
 app.get("/raffle/tickets", (req, res) => {
@@ -118,7 +102,6 @@ app.get("/raffle/winner", (req, res) => {
   res.json({ winner });
 });
 
-// Shows all users and weighted wagered in this period
 app.get("/wager", (req, res) => {
   const output = latestRawData.map(user => ({
     username: user.username,
@@ -127,13 +110,7 @@ app.get("/wager", (req, res) => {
   res.json(output);
 });
 
-app.get("/period", (req, res) => {
-  const { start, end } = getCurrentRaffleWindow();
-  if (!start || !end) return res.json({ message: "Not in raffle period" });
-  res.json({ start: start.toISOString(), end: end.toISOString() });
-});
-
-// Run
+// RUN
 fetchAndUpdateTickets();
 setInterval(fetchAndUpdateTickets, 5 * 60 * 1000);
 app.listen(PORT, '0.0.0.0', () => {
