@@ -15,7 +15,7 @@ app.use((req, res, next) => {
 // Roobet API settings
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
 const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2YWU0ODdiLTU3MDYtNGE3ZS04YTY5LTMzYThhOWM5NjMxYiIsIm5vbmNlIjoiZWI2MzYyMWUtMTMwZi00ZTE0LTlmOWMtOTY3MGNiZGFmN2RiIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzI3MjQ2NjY1fQ.rVG_QKMcycBEnzIFiAQuixfu6K_oEkAq2Y8Gukco3b8";
-const userId = "26ae487b-5706-4a7e-8a69-33a8a9c9631b";
+const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2";
 
 // State
 let userTicketState = {};
