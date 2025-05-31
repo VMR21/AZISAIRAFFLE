@@ -21,7 +21,7 @@ function getCurrentRaffleWindow() {
   const year = nowJST.getUTCFullYear();
   const month = nowJST.getUTCMonth();
 
-  const baseStart = new Date(Date.UTC(year, month, 1, 15, 1, 0)); // 00:01 JST = 15:01 UTC
+  const baseStart = new Date(Date.UTC(year, month, 0, 15, 1, 0)); // 00:01 JST = 15:01 UTC
   const duration = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
 
   for (let i = 0; i < 4; i++) {
