@@ -7,29 +7,32 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM";
-const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2";
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM"; // Replace with your real API key
+const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2"; // Replace with your real user ID
 
 let raffleTickets = [];
 let lastSeenData = {};
 let initialized = false;
 let latestRawData = [];
 
-const RAFFLE_DURATION_MS = (167 * 60 + 59) * 60 * 1000;
-
 function getCurrentRaffleWindow() {
-  const nowUTC = new Date();
-  const nowJST = new Date(nowUTC.getTime() + 9 * 60 * 60 * 1000);
+  const now = new Date();
+  const nowJST = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = nowJST.getUTCFullYear();
+  const month = nowJST.getUTCMonth();
 
-  // ⏱ Start from 25th of current month at 00:01 JST (for testing)
-  const base = new Date(Date.UTC(nowJST.getFullYear(), nowJST.getMonth(), 25, 0, 1));
-  const diff = nowUTC.getTime() - base.getTime();
+  const baseStart = new Date(Date.UTC(year, month, 1, 15, 1, 0)); // 00:01 JST = 15:01 UTC
+  const duration = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
 
-  const period = Math.floor(diff / RAFFLE_DURATION_MS);
-  const start = new Date(base.getTime() + period * RAFFLE_DURATION_MS);
-  const end = new Date(start.getTime() + RAFFLE_DURATION_MS);
+  for (let i = 0; i < 4; i++) {
+    const start = new Date(baseStart.getTime() + i * duration);
+    const end = new Date(start.getTime() + duration);
+    if (now >= start && now < end) {
+      return { start, end };
+    }
+  }
 
-  return { start, end };
+  return { start: null, end: null };
 }
 
 function shuffle(array) {
@@ -41,10 +44,14 @@ function shuffle(array) {
 
 async function fetchAndUpdateTickets() {
   const { start, end } = getCurrentRaffleWindow();
+  if (!start || !end) {
+    console.log("⛔ Outside raffle period (29th–31st)");
+    return;
+  }
 
   try {
     const response = await axios.get(apiUrl, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: { Authorization: Bearer ${apiKey} },
       params: {
         userId,
         startDate: start.toISOString(),
@@ -81,15 +88,10 @@ async function fetchAndUpdateTickets() {
 
     if (!initialized) {
       shuffle(raffleTickets);
-      // Sort after shuffle so ticket numbers are ordered
-      raffleTickets = raffleTickets.map((t, i) => ({
-        ticket: i + 1,
-        username: t.username
-      }));
       initialized = true;
     }
 
-    console.log(`[✅] Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount}`);
+    console.log([✅] Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount});
   } catch (err) {
     console.error("[❌] Fetch failed:", err.message);
   }
@@ -121,6 +123,7 @@ app.get("/raffle/winner", (req, res) => {
   res.json({ winner });
 });
 
+// Shows all users and weighted wagered in this period
 app.get("/wager", (req, res) => {
   const output = latestRawData.map(user => ({
     username: user.username,
@@ -129,10 +132,17 @@ app.get("/wager", (req, res) => {
   res.json(output);
 });
 
+app.get("/period", (req, res) => {
+  const { start, end } = getCurrentRaffleWindow();
+  if (!start || !end) return res.json({ message: "Not in raffle period" });
+  res.json({ start: start.toISOString(), end: end.toISOString() });
+});
+
 // Run
 fetchAndUpdateTickets();
 setInterval(fetchAndUpdateTickets, 5 * 60 * 1000);
-
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🎉 Listening on port ${PORT}`);
+  console.log(🎉 Listening on port ${PORT});
 });
+
+
