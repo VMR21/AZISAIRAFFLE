@@ -51,7 +51,7 @@ async function fetchAndUpdateTickets() {
 
   try {
     const response = await axios.get(apiUrl, {
-      headers: { Authorization: Bearer ${apiKey} },
+      headers: { Authorization: `Bearer ${apiKey}` },
       params: {
         userId,
         startDate: start.toISOString(),
