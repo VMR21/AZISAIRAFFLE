@@ -7,8 +7,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "YOUR_API_KEY_HERE"; // Replace with your real API key
-const userId = "YOUR_USER_ID_HERE"; // Replace with your real user ID
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM"; // Replace with your real API key
+const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2"; // Replace with your real user ID
 
 let raffleTickets = [];
 let lastSeenData = {};
