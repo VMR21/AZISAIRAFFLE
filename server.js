@@ -18,7 +18,6 @@ const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2YWU0ODdiLTU3MDY
 const userId = "26ae487b-5706-4a7e-8a69-33a8a9c9631b"; // 🔁 Replace with your user ID
 
 // Raffle State
-let cachedData = [];
 let userTicketState = {};
 let ticketAssignments = [];
 let nextTicketNumber = 1;
@@ -26,28 +25,27 @@ let pastRounds = [];
 let initialized = false;
 let latestPublished = null;
 
-// JST Raffle Weekly Window
 function getCurrentRaffleWindow() {
   const nowUTC = new Date();
-  const nowJST = new Date(nowUTC.getTime() + 9 * 60 * 60 * 1000); // Convert to JST
+  const nowJST = new Date(nowUTC.getTime() + 9 * 60 * 60 * 1000);
 
   const day = nowJST.getUTCDay();
   const diffToLastSaturday = (day + 1) % 7;
 
   const raffleStart = new Date(nowJST);
   raffleStart.setUTCDate(nowJST.getUTCDate() - diffToLastSaturday);
-  raffleStart.setUTCHours(15, 0, 1, 0); // JST 00:00:01 → UTC 15:00:01 (Fri)
+  raffleStart.setUTCHours(15, 0, 1, 0);
 
   const raffleEnd = new Date(raffleStart);
   raffleEnd.setUTCDate(raffleStart.getUTCDate() + 6);
-  raffleEnd.setUTCHours(14, 59, 59, 0); // JST 23:59:59 → UTC 14:59:59 (Fri)
+  raffleEnd.setUTCHours(14, 59, 59, 0);
 
   const publicVisibleFrom = new Date(raffleStart);
-  publicVisibleFrom.setUTCHours(5, 0, 0, 0); // JST 14:00 → UTC 05:00 (Sat)
+  publicVisibleFrom.setUTCHours(5, 0, 0, 0);
 
   const publicVisibleUntil = new Date(publicVisibleFrom);
   publicVisibleUntil.setUTCDate(publicVisibleUntil.getUTCDate() + 7);
-  publicVisibleUntil.setUTCHours(4, 59, 59, 0); // JST 13:59:59 → UTC 04:59:59 (Sat)
+  publicVisibleUntil.setUTCHours(4, 59, 59, 0);
 
   return {
     start: raffleStart.toISOString().split("T")[0],
@@ -91,34 +89,20 @@ async function fetchAndCacheData() {
 
     const response = await axios.get(apiUrl, {
       headers: { Authorization: `Bearer ${apiKey}` },
-      params: {
-        userId,
-        startDate,
-        endDate
-      }
+      params: { userId, startDate, endDate }
     });
 
     const data = response.data;
     if (!Array.isArray(data)) throw new Error("Invalid data format");
 
-    const sorted = data
-      .filter(entry => entry.username && entry.weightedWagered)
-      .sort((a, b) => b.weightedWagered - a.weightedWagered);
-
-    const top10 = sorted.slice(0, 10);
-    cachedData = top10.map(entry => ({
-      username: entry.username,
-      wagered: Math.floor(entry.weightedWagered)
-    }));
+    const sorted = data.filter(u => u.weightedWagered >= 1).sort((a, b) => b.weightedWagered - a.weightedWagered);
 
     if (!initialized) {
       const ticketPool = [];
-      top10.forEach(entry => {
-        const username = entry.username;
-        const totalWagered = Math.floor(entry.weightedWagered);
-        const count = Math.floor(totalWagered / 1000); // 1000 wager = 1 ticket
-        userTicketState[username] = { totalWagered, tickets: count };
-        for (let i = 0; i < count; i++) ticketPool.push({ username });
+      sorted.forEach(user => {
+        const count = Math.floor(user.weightedWagered / 1000);
+        userTicketState[user.username] = { tickets: count };
+        for (let i = 0; i < count; i++) ticketPool.push({ username: user.username });
       });
       for (let i = ticketPool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -128,36 +112,26 @@ async function fetchAndCacheData() {
       nextTicketNumber = ticketAssignments.length + 1;
       initialized = true;
     } else {
-      top10.forEach(entry => {
-        const username = entry.username;
-        const totalWagered = Math.floor(entry.weightedWagered);
-        const prevTickets = userTicketState[username]?.tickets || 0;
-        const newTickets = Math.floor(totalWagered / 1000) - prevTickets;
-
-        if (!userTicketState[username]) {
-          userTicketState[username] = { totalWagered: 0, tickets: 0 };
-        }
-
+      sorted.forEach(user => {
+        const current = userTicketState[user.username] || { tickets: 0 };
+        const total = Math.floor(user.weightedWagered / 1000);
+        const newTickets = total - current.tickets;
         for (let i = 0; i < newTickets; i++) {
-          ticketAssignments.push({ ticket: nextTicketNumber++, username });
-          userTicketState[username].tickets += 1;
+          ticketAssignments.push({ ticket: nextTicketNumber++, username: user.username });
         }
-
-        userTicketState[username].totalWagered = totalWagered;
+        userTicketState[user.username] = { tickets: total };
       });
     }
 
     console.log(`[✅] JST raffle data updated`);
   } catch (err) {
-    console.error("[❌] Error fetching Roobet data:", err.message);
+    console.error("[❌] Error:", err.message);
   }
 }
 
-// Start fetching
 fetchAndCacheData();
 setInterval(fetchAndCacheData, 5 * 60 * 1000);
 
-// API endpoints
 app.get("/raffle/tickets", (req, res) => {
   const now = new Date();
   if (now < currentWindow.publicVisibleFrom) {
@@ -190,3 +164,4 @@ app.get("/raffle/history", (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Raffle server running on port ${PORT}`);
 });
+
