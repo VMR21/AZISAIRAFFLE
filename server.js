@@ -33,18 +33,18 @@ function getCurrentRaffleWindow() {
 
   const raffleStart = new Date(nowJST);
   raffleStart.setUTCDate(nowJST.getUTCDate() - diffToLastSaturday);
-  raffleStart.setUTCHours(15, 0, 1, 0);
+  raffleStart.setUTCHours(15, 0, 1, 0); // Friday 15:00:01 UTC = Saturday 00:00:01 JST
 
   const raffleEnd = new Date(raffleStart);
   raffleEnd.setUTCDate(raffleStart.getUTCDate() + 6);
-  raffleEnd.setUTCHours(14, 59, 59, 0);
+  raffleEnd.setUTCHours(14, 59, 59, 0); // Friday 23:59:59 JST
 
   const publicVisibleFrom = new Date(raffleStart);
-  publicVisibleFrom.setUTCHours(5, 0, 0, 0);
+  publicVisibleFrom.setUTCHours(5, 0, 0, 0); // Saturday 14:00 JST
 
   const publicVisibleUntil = new Date(publicVisibleFrom);
   publicVisibleUntil.setUTCDate(publicVisibleUntil.getUTCDate() + 7);
-  publicVisibleUntil.setUTCHours(4, 59, 59, 0);
+  publicVisibleUntil.setUTCHours(4, 59, 59, 0); // Next Saturday 13:59:59 JST
 
   return {
     start: raffleStart.toISOString().split("T")[0],
@@ -64,12 +64,11 @@ async function fetchAndCacheData() {
     const now = new Date();
 
     if (!currentWindow.published && now >= currentWindow.publicVisibleFrom) {
-      const publishedRound = {
+      latestPublished = {
         range: { start: currentWindow.start, end: currentWindow.end },
         tickets: [...ticketAssignments]
       };
-      pastRounds.push(publishedRound);
-      latestPublished = publishedRound;
+      pastRounds.push(latestPublished);
       currentWindow.published = true;
       console.log(`[📢] Published raffle for ${currentWindow.start} → ${currentWindow.end}`);
     }
@@ -107,42 +106,29 @@ async function fetchAndCacheData() {
           }
         }
       });
+
       for (let i = ticketPool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [ticketPool[i], ticketPool[j]] = [ticketPool[j], ticketPool[i]];
       }
+
       ticketAssignments = ticketPool.map((t, i) => ({ ticket: i + 1, username: t.username }));
       nextTicketNumber = ticketAssignments.length + 1;
       initialized = true;
-
-      console.log(`[🎫] Initialized with ${ticketAssignments.length} tickets`);
-    } else {
-      sorted.forEach(user => {
-        const current = userTicketState[user.username] || { tickets: 0 };
-        const total = Math.floor(user.weightedWagered / 1000);
-        const newTickets = total - current.tickets;
-        for (let i = 0; i < newTickets; i++) {
-          ticketAssignments.push({ ticket: nextTicketNumber++, username: user.username });
-        }
-        userTicketState[user.username] = { tickets: total };
-      });
+      console.log(`[🎫] Tickets initialized (${ticketAssignments.length})`);
     }
-
-    console.log(`[✅] JST raffle data updated`);
   } catch (err) {
-    console.error("[❌] Error:", err.message);
+    console.error("[❌] Error fetching Roobet data:", err.message);
   }
 }
 
 fetchAndCacheData();
 setInterval(fetchAndCacheData, 5 * 60 * 1000);
 
+// ROUTES
+
+// All tickets (no visibility restriction for now)
 app.get("/raffle/tickets", (req, res) => {
-  const now = new Date();
-  if (now < currentWindow.publicVisibleFrom) {
-    if (latestPublished) return res.json(latestPublished.tickets);
-    return res.status(404).json({ message: "No past raffle data yet." });
-  }
   res.json(ticketAssignments);
 });
 
@@ -164,6 +150,20 @@ app.get("/raffle/current-round", (req, res) => {
 
 app.get("/raffle/history", (req, res) => {
   res.json(pastRounds);
+});
+
+// DEBUG endpoint
+app.get("/raffle/debug", async (req, res) => {
+  const startDate = `${currentWindow.start}T00:00:01Z`;
+  const endDate = `${currentWindow.end}T23:59:59Z`;
+
+  const response = await axios.get(apiUrl, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    params: { userId, startDate, endDate }
+  });
+
+  const filtered = response.data.filter(u => u.weightedWagered >= 1000);
+  res.json(filtered);
 });
 
 app.listen(PORT, () => {
