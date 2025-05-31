@@ -7,32 +7,33 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM";
-const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2";
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM"; // Replace this
+const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2"; // Replace this
 
 let raffleTickets = [];
 let lastSeenData = {};
 let initialized = false;
 let latestRawData = [];
 
-function getCurrentRaffleWindow() {
+const MS_IN_WEEK = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
+const MS_EXTRA_BUFFER = 12 * 60 * 60 * 1000;
+
+function getCurrentAndVisiblePeriod() {
   const now = new Date();
   const nowJST = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const year = nowJST.getUTCFullYear();
   const month = nowJST.getUTCMonth();
-
-  const baseStart = new Date(Date.UTC(year, month, 0, 15, 1, 0)); // 00:01 JST = 15:01 UTC
-  const duration = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
+  const baseStart = new Date(Date.UTC(year, month, 0, 15, 1, 0)); // JST 00:01 on 1st = UTC 15:01 on 0th
 
   for (let i = 0; i < 4; i++) {
-    const start = new Date(baseStart.getTime() + i * duration);
-    const end = new Date(start.getTime() + duration);
-    if (now >= start && now < end) {
-      return { start, end };
+    const start = new Date(baseStart.getTime() + i * MS_IN_WEEK);
+    const end = new Date(start.getTime() + MS_IN_WEEK);
+    const visibleUntil = new Date(end.getTime() + MS_EXTRA_BUFFER);
+    if (now >= start && now < visibleUntil) {
+      return { start, end, visibleUntil, week: i + 1 };
     }
   }
-
-  return { start: null, end: null };
+  return { start: null, end: null, visibleUntil: null, week: null };
 }
 
 function shuffle(array) {
@@ -43,9 +44,9 @@ function shuffle(array) {
 }
 
 async function fetchAndUpdateTickets() {
-  const { start, end } = getCurrentRaffleWindow();
+  const { start, end } = getCurrentAndVisiblePeriod();
   if (!start || !end) {
-    console.log("⛔ Outside raffle period (29th–31st)");
+    console.log("⛔ Outside raffle period");
     return;
   }
 
@@ -91,23 +92,23 @@ async function fetchAndUpdateTickets() {
       initialized = true;
     }
 
-    console.log(`✅ Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount}`);
+    console.log(`[✅] Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount}`);
   } catch (err) {
-    console.error("❌ Fetch failed:", err.message);
+    console.error("[❌] Fetch failed:", err.message);
   }
 }
 
 // ROUTES
 app.get("/", (req, res) => {
-  res.send("🎟️ Roobet Raffle API running");
+  res.send("🎟️ Roobet Raffle API is running.");
 });
 
 app.get("/raffle/tickets", (req, res) => {
-  const grouped = [...raffleTickets].sort((a, b) => {
+  const ordered = [...raffleTickets].sort((a, b) => {
     if (a.username === b.username) return a.ticket - b.ticket;
     return a.username.localeCompare(b.username);
   });
-  res.json(grouped);
+  res.json(ordered);
 });
 
 app.get("/raffle/user/:username", (req, res) => {
@@ -131,15 +132,19 @@ app.get("/wager", (req, res) => {
 });
 
 app.get("/period", (req, res) => {
-  const { start, end } = getCurrentRaffleWindow();
+  const { start, end, visibleUntil, week } = getCurrentAndVisiblePeriod();
   if (!start || !end) return res.json({ message: "Not in raffle period" });
-  res.json({ start: start.toISOString(), end: end.toISOString() });
+  res.json({
+    week,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    visibleUntil: visibleUntil.toISOString()
+  });
 });
 
-// INIT
+// START
 fetchAndUpdateTickets();
 setInterval(fetchAndUpdateTickets, 5 * 60 * 1000);
-
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🎉 Listening on port ${PORT}`);
 });
