@@ -101,9 +101,13 @@ app.get("/", (req, res) => {
 });
 
 app.get("/raffle/tickets", (req, res) => {
-  const sorted = [...raffleTickets].sort((a, b) => a.ticket - b.ticket);
-  res.json(sorted);
+  const ordered = [...raffleTickets].sort((a, b) => {
+    if (a.username === b.username) return a.ticket - b.ticket;
+    return a.username.localeCompare(b.username);
+  });
+  res.json(ordered);
 });
+
 
 app.get("/raffle/user/:username", (req, res) => {
   const name = req.params.username;
