@@ -14,8 +14,8 @@ app.use((req, res, next) => {
 
 // Roobet API settings
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "YOUR_API_KEY_HERE"; // 🔁 Replace with real key
-const userId = "YOUR_USER_ID_HERE"; // 🔁 Replace with your user ID
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2YWU0ODdiLTU3MDYtNGE3ZS04YTY5LTMzYThhOWM5NjMxYiIsIm5vbmNlIjoiZWI2MzYyMWUtMTMwZi00ZTE0LTlmOWMtOTY3MGNiZGFmN2RiIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzI3MjQ2NjY1fQ.rVG_QKMcycBEnzIFiAQuixfu6K_oEkAq2Y8Gukco3b8"; // 🔁 Replace with real key
+const userId = "26ae487b-5706-4a7e-8a69-33a8a9c9631b"; // 🔁 Replace with your user ID
 
 // Raffle State
 let cachedData = [];
