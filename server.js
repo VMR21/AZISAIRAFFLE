@@ -96,12 +96,16 @@ async function fetchAndCacheData() {
 
     const sorted = data.filter(u => u.weightedWagered >= 1).sort((a, b) => b.weightedWagered - a.weightedWagered);
 
-    if (!initialized) {
+    if (!initialized || ticketAssignments.length === 0) {
       const ticketPool = [];
       sorted.forEach(user => {
         const count = Math.floor(user.weightedWagered / 1000);
-        userTicketState[user.username] = { tickets: count };
-        for (let i = 0; i < count; i++) ticketPool.push({ username: user.username });
+        if (count > 0) {
+          userTicketState[user.username] = { tickets: count };
+          for (let i = 0; i < count; i++) {
+            ticketPool.push({ username: user.username });
+          }
+        }
       });
       for (let i = ticketPool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -110,6 +114,8 @@ async function fetchAndCacheData() {
       ticketAssignments = ticketPool.map((t, i) => ({ ticket: i + 1, username: t.username }));
       nextTicketNumber = ticketAssignments.length + 1;
       initialized = true;
+
+      console.log(`[🎫] Initialized with ${ticketAssignments.length} tickets`);
     } else {
       sorted.forEach(user => {
         const current = userTicketState[user.username] || { tickets: 0 };
@@ -131,8 +137,12 @@ async function fetchAndCacheData() {
 fetchAndCacheData();
 setInterval(fetchAndCacheData, 5 * 60 * 1000);
 
-// ✅ Show tickets always (no time restriction)
 app.get("/raffle/tickets", (req, res) => {
+  const now = new Date();
+  if (now < currentWindow.publicVisibleFrom) {
+    if (latestPublished) return res.json(latestPublished.tickets);
+    return res.status(404).json({ message: "No past raffle data yet." });
+  }
   res.json(ticketAssignments);
 });
 
