@@ -7,8 +7,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM"; // Replace with your real API key
-const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2"; // Replace with your real user ID
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjE1ZThlYzNmLTkwZDEtNDEzNy1iNGJkLWJhN2M0MjFjMjVlMiIsIm5vbmNlIjoiNDE5MmI1MTctOGMzYy00ZjBjLTg2MzEtYzNiOWEyNGNiZmFjIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzQ3MTg3MTUxfQ.Qr7j1PEqSL5cVb7RuMXXLv1IDv4gvY98pUUU9Ca1pBM";
+const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2";
 
 let raffleTickets = [];
 let lastSeenData = {};
@@ -91,9 +91,9 @@ async function fetchAndUpdateTickets() {
       initialized = true;
     }
 
-    console.log([✅] Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount});
+    console.log(`✅ Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount}`);
   } catch (err) {
-    console.error("[❌] Fetch failed:", err.message);
+    console.error("❌ Fetch failed:", err.message);
   }
 }
 
@@ -103,13 +103,12 @@ app.get("/", (req, res) => {
 });
 
 app.get("/raffle/tickets", (req, res) => {
-  const ordered = [...raffleTickets].sort((a, b) => {
+  const grouped = [...raffleTickets].sort((a, b) => {
     if (a.username === b.username) return a.ticket - b.ticket;
     return a.username.localeCompare(b.username);
   });
-  res.json(ordered);
+  res.json(grouped);
 });
-
 
 app.get("/raffle/user/:username", (req, res) => {
   const name = req.params.username;
@@ -123,7 +122,6 @@ app.get("/raffle/winner", (req, res) => {
   res.json({ winner });
 });
 
-// Shows all users and weighted wagered in this period
 app.get("/wager", (req, res) => {
   const output = latestRawData.map(user => ({
     username: user.username,
@@ -138,11 +136,10 @@ app.get("/period", (req, res) => {
   res.json({ start: start.toISOString(), end: end.toISOString() });
 });
 
-// Run
+// INIT
 fetchAndUpdateTickets();
 setInterval(fetchAndUpdateTickets, 5 * 60 * 1000);
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(🎉 Listening on port ${PORT});
+  console.log(`🎉 Listening on port ${PORT}`);
 });
-
-
