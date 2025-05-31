@@ -13,6 +13,7 @@ const userId = "15e8ec3f-90d1-4137-b4bd-ba7c421c25e2";
 let raffleTickets = [];
 let lastSeenData = {};
 let initialized = false;
+let latestRawData = [];
 
 function getCurrentRaffleWindow() {
   const nowUTC = new Date();
@@ -52,6 +53,7 @@ async function fetchAndUpdateTickets() {
     });
 
     const data = response.data;
+    latestRawData = data;
     let newTicketsCount = 0;
 
     for (const player of data) {
@@ -84,13 +86,13 @@ async function fetchAndUpdateTickets() {
 
     console.log(`[✅] Updated | Total: ${raffleTickets.length} | New: ${newTicketsCount}`);
   } catch (err) {
-    console.error("[:x:] Fetch failed:", err.message);
+    console.error("[❌] Fetch failed:", err.message);
   }
 }
 
-// API Routes
+// ROUTES
 app.get("/", (req, res) => {
-  res.send(":tickets: Roobet Raffle API running");
+  res.send("🎟️ Roobet Raffle API running");
 });
 
 app.get("/raffle/tickets", (req, res) => {
@@ -107,6 +109,15 @@ app.get("/raffle/winner", (req, res) => {
   if (raffleTickets.length === 0) return res.json({ error: "No tickets yet" });
   const winner = raffleTickets[Math.floor(Math.random() * raffleTickets.length)];
   res.json({ winner });
+});
+
+// ✅ NEW: Show current period weighted wagers
+app.get("/wager", (req, res) => {
+  const output = latestRawData.map(user => ({
+    username: user.username,
+    weightedWagered: user.weightedWagered
+  }));
+  res.json(output);
 });
 
 // Run
