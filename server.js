@@ -4,151 +4,104 @@ const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Use CORS middleware
 app.use(cors());
 
+// API details
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
 const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2YWU0ODdiLTU3MDYtNGE3ZS04YTY5LTMzYThhOWM5NjMxYiIsIm5vbmNlIjoiZWI2MzYyMWUtMTMwZi00ZTE0LTlmOWMtOTY3MGNiZGFmN2RiIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzI3MjQ2NjY1fQ.rVG_QKMcycBEnzIFiAQuixfu6K_oEkAq2Y8Gukco3b8";
 const userId = "26ae487b-5706-4a7e-8a69-33a8a9c9631b";
 
-// Raffle window logic
-function getCurrentRaffleWindow() {
-  const nowUTC = new Date();
-  const nowJST = new Date(nowUTC.getTime() + 9 * 60 * 60 * 1000);
+let ticketCache = [];
 
-  const day = nowJST.getUTCDay();
-  const diffToLastSaturday = (day + 1) % 7;
+// Format usernames: yu***90
+const formatUsername = (username) => {
+  if (username.length <= 4) return username;
+  return `${username.slice(0, 2)}***${username.slice(-2)}`;
+};
 
-  const raffleStart = new Date(nowJST);
-  raffleStart.setUTCDate(nowJST.getUTCDate() - diffToLastSaturday);
-  raffleStart.setUTCHours(15, 0, 1, 0); // Fri 15:00:01 UTC
+// JST Weekly Period
+const getCurrentPeriod = () => {
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000); // JST
+  const day = now.getUTCDay();
+  const lastSaturday = new Date(now);
+  lastSaturday.setUTCDate(now.getUTCDate() - ((day + 1) % 7));
+  lastSaturday.setUTCHours(15, 0, 1, 0); // Saturday JST 00:00:01 = Friday 15:00:01 UTC
 
-  const raffleEnd = new Date(raffleStart);
-  raffleEnd.setUTCDate(raffleStart.getUTCDate() + 6);
-  raffleEnd.setUTCHours(14, 59, 59, 0); // Fri 23:59:59 JST
-
-  const publicVisibleFrom = new Date(raffleStart);
-  publicVisibleFrom.setUTCHours(5, 0, 0, 0); // Sat 14:00 JST
-
-  const publicVisibleUntil = new Date(publicVisibleFrom);
-  publicVisibleUntil.setUTCDate(publicVisibleUntil.getUTCDate() + 7);
-  publicVisibleUntil.setUTCHours(4, 59, 59, 0); // Next Sat 13:59:59 JST
+  const nextFriday = new Date(lastSaturday);
+  nextFriday.setUTCDate(lastSaturday.getUTCDate() + 6);
+  nextFriday.setUTCHours(14, 59, 59, 0); // Friday JST 23:59:59 = UTC 14:59:59
 
   return {
-    startDate: raffleStart.toISOString(),
-    endDate: raffleEnd.toISOString(),
-    start: raffleStart.toISOString().split("T")[0],
-    end: raffleEnd.toISOString().split("T")[0],
-    publicVisibleFrom,
-    publicVisibleUntil
+    startDate: lastSaturday.toISOString(),
+    endDate: nextFriday.toISOString(),
   };
-}
+};
 
-let currentWindow = getCurrentRaffleWindow();
-let ticketAssignments = [];
-let userTicketState = {};
-let initialized = false;
-
+// Fetch and generate ticket data
 async function fetchRaffleData() {
   try {
+    const { startDate, endDate } = getCurrentPeriod();
+
     const response = await axios.get(apiUrl, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
       params: {
         userId,
-        startDate: currentWindow.startDate,
-        endDate: currentWindow.endDate
-      }
+        startDate,
+        endDate,
+      },
     });
 
     const data = response.data;
 
-    if (!initialized) {
-      const tempPool = [];
-
-      data.forEach(user => {
-        const count = Math.floor(user.weightedWagered / 1000);
-        if (count > 0) {
-          for (let i = 0; i < count; i++) {
-            tempPool.push({ username: user.username });
-          }
-          userTicketState[user.username] = {
-            total: count * 1000,
-            tickets: count
-          };
+    const newTickets = [];
+    data
+      .filter((player) => player.weightedWagered >= 1000 && player.username !== "azisai205")
+      .forEach((player) => {
+        const ticketCount = Math.floor(player.weightedWagered / 1000);
+        const formatted = formatUsername(player.username);
+        for (let i = 0; i < ticketCount; i++) {
+          newTickets.push({ ticket: newTickets.length + 1, username: formatted });
         }
       });
 
-      for (let i = tempPool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [tempPool[i], tempPool[j]] = [tempPool[j], tempPool[i]];
-      }
-
-      ticketAssignments = tempPool.map((entry, index) => ({
-        ticket: index + 1,
-        username: entry.username
-      }));
-
-      initialized = true;
-      console.log(`[🎫] Initialized round ${currentWindow.start} → ${currentWindow.end} with ${ticketAssignments.length} tickets`);
-    } else {
-      data.forEach(user => {
-        const previous = userTicketState[user.username] || { total: 0, tickets: 0 };
-        const delta = user.weightedWagered - previous.total;
-        const newTickets = Math.floor(delta / 1000);
-
-        if (newTickets > 0) {
-          for (let i = 0; i < newTickets; i++) {
-            ticketAssignments.push({
-              ticket: ticketAssignments.length + 1,
-              username: user.username
-            });
-          }
-
-          userTicketState[user.username] = {
-            total: previous.total + newTickets * 1000,
-            tickets: previous.tickets + newTickets
-          };
-
-          console.log(`[+] ${user.username} gets ${newTickets} new ticket(s)`);
-        }
-      });
-    }
-  } catch (err) {
-    console.error("[❌] Error fetching raffle data:", err.message);
+    ticketCache = newTickets;
+    console.log(`[🎫] Raffle updated: ${ticketCache.length} tickets`);
+  } catch (error) {
+    console.error("❌ Error fetching raffle data:", error.message);
   }
 }
 
 // ROUTES
 app.get("/", (req, res) => {
-  res.send("🎟️ Welcome to the Dynamic Raffle API. Use /raffle/tickets or /raffle/user/:username");
+  res.send("🎟️ Welcome to the Raffle API. Use /raffle/tickets or /raffle/user/:username");
 });
 
 app.get("/raffle/tickets", (req, res) => {
-  res.json(ticketAssignments);
+  res.json(ticketCache);
 });
 
 app.get("/raffle/user/:username", (req, res) => {
-  const username = req.params.username;
-  const tickets = ticketAssignments.filter(t => t.username === username).map(t => t.ticket);
-  res.json({ username, tickets });
+  const raw = req.params.username;
+  const formatted = formatUsername(raw);
+  const tickets = ticketCache.filter((t) => t.username === formatted).map((t) => t.ticket);
+  res.json({ username: raw, tickets });
 });
 
-app.get("/raffle/round", (req, res) => {
-  res.json({
-    start: currentWindow.start,
-    end: currentWindow.end,
-    totalTickets: ticketAssignments.length
-  });
-});
-
+// Initial fetch & update every 5 minutes
 fetchRaffleData();
-setInterval(fetchRaffleData, 5 * 60 * 1000); // Every 5 min
+setInterval(fetchRaffleData, 5 * 60 * 1000);
 
+// Self-ping (replace with your Render domain)
 setInterval(() => {
-  axios.get("https://your-domain.onrender.com/raffle/tickets")
+  axios.get("https://yourrenderurl.onrender.com/raffle/tickets")
     .then(() => console.log("✅ Self-ping success"))
-    .catch(err => console.error("❌ Self-ping failed:", err.message));
+    .catch((err) => console.error("❌ Self-ping failed:", err.message));
 }, 4 * 60 * 1000);
 
+// Start server
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Dynamic Raffle server running on port ${PORT}`);
+  console.log(`🚀 Raffle server running on port ${PORT}`);
 });
