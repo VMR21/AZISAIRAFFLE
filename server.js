@@ -14,10 +14,9 @@ app.use((req, res, next) => {
 
 // Roobet API settings
 const apiUrl = "https://roobetconnect.com/affiliate/v2/stats";
-const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2YWU0ODdiLTU3MDYtNGE3ZS04YTY5LTMzYThhOWM5NjMxYiIsIm5vbmNlIjoiZWI2MzYyMWUtMTMwZi00ZTE0LTlmOWMtOTY3MGNiZGFmN2RiIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzI3MjQ2NjY1fQ.rVG_QKMcycBEnzIFiAQuixfu6K_oEkAq2Y8Gukco3b8"; // 🔁 Replace with real key
-const userId = "26ae487b-5706-4a7e-8a69-33a8a9c9631b"; // 🔁 Replace with your user ID
+const apiKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjI2YWU0ODdiLTU3MDYtNGE3ZS04YTY5LTMzYThhOWM5NjMxYiIsIm5vbmNlIjoiZWI2MzYyMWUtMTMwZi00ZTE0LTlmOWMtOTY3MGNiZGFmN2RiIiwic2VydmljZSI6ImFmZmlsaWF0ZVN0YXRzIiwiaWF0IjoxNzI3MjQ2NjY1fQ.rVG_QKMcycBEnzIFiAQuixfu6K_oEkAq2Y8Gukco3b8";
+const userId = "26ae487b-5706-4a7e-8a69-33a8a9c9631b";
 
-// Raffle State
 let userTicketState = {};
 let ticketAssignments = [];
 let nextTicketNumber = 1;
@@ -132,12 +131,8 @@ async function fetchAndCacheData() {
 fetchAndCacheData();
 setInterval(fetchAndCacheData, 5 * 60 * 1000);
 
+// ✅ Show tickets always (no time restriction)
 app.get("/raffle/tickets", (req, res) => {
-  const now = new Date();
-  if (now < currentWindow.publicVisibleFrom) {
-    if (latestPublished) return res.json(latestPublished.tickets);
-    return res.status(404).json({ message: "No past raffle data yet." });
-  }
   res.json(ticketAssignments);
 });
 
@@ -164,4 +159,3 @@ app.get("/raffle/history", (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Raffle server running on port ${PORT}`);
 });
-
