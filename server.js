@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 5000;
 
 // 🔓 Enhanced CORS Middleware
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*"); // Replace "*" with your domain to restrict
+  res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   next();
@@ -23,6 +23,12 @@ let latestRawData = [];
 
 const MS_IN_WEEK = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
 const MS_EXTRA_BUFFER = 12 * 60 * 60 * 1000;
+
+// 🔐 Mask username: first 2 + "***" + last 2
+function maskUsername(username) {
+  if (username.length <= 4) return username;
+  return username.slice(0, 2) + "***" + username.slice(-2);
+}
 
 function getCurrentAndVisiblePeriod() {
   const now = new Date();
@@ -66,7 +72,7 @@ async function fetchAndUpdateTickets() {
       },
     });
 
-    const data = response.data;
+    const data = response.data.filter(user => user.username !== "azisai205");
     latestRawData = data;
     let newTicketsCount = 0;
 
@@ -110,29 +116,29 @@ app.get("/", (req, res) => {
 });
 
 app.get("/raffle/tickets", (req, res) => {
-  const ordered = [...raffleTickets].sort((a, b) => {
-    if (a.username === b.username) return a.ticket - b.ticket;
-    return a.username.localeCompare(b.username);
-  });
-  res.json(ordered);
+  const output = raffleTickets.map((t, i) => ({
+    ticket: i + 1,
+    username: maskUsername(t.username),
+  }));
+  res.json(output);
 });
 
 app.get("/raffle/user/:username", (req, res) => {
   const name = req.params.username;
   const count = raffleTickets.filter(t => t.username === name).length;
-  res.json({ username: name, ticketCount: count });
+  res.json({ username: maskUsername(name), ticketCount: count });
 });
 
 app.get("/raffle/winner", (req, res) => {
   if (raffleTickets.length === 0) return res.json({ error: "No tickets yet" });
   const winner = raffleTickets[Math.floor(Math.random() * raffleTickets.length)];
-  res.json({ winner });
+  res.json({ winner: { ticket: winner.ticket, username: maskUsername(winner.username) } });
 });
 
 app.get("/wager", (req, res) => {
   const output = latestRawData.map(user => ({
-    username: user.username,
-    weightedWagered: user.weightedWagered
+    username: maskUsername(user.username),
+    weightedWagered: user.weightedWagered,
   }));
   res.json(output);
 });
@@ -144,7 +150,7 @@ app.get("/period", (req, res) => {
     week,
     start: start.toISOString(),
     end: end.toISOString(),
-    visibleUntil: visibleUntil.toISOString()
+    visibleUntil: visibleUntil.toISOString(),
   });
 });
 
