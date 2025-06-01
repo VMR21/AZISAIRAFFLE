@@ -21,7 +21,7 @@ let lastSeenData = {};
 let initialized = false;
 let latestRawData = [];
 
-const MS_IN_WEEK = 167 * 60 * 60 * 1000 + 59 * 60 * 1000;
+const MS_IN_WEEK = 7 * 24 * 60 * 60 * 1000; // 168 hours
 const MS_EXTRA_BUFFER = 12 * 60 * 60 * 1000;
 
 // 🔐 Mask username: first 2 + "***" + last 2
