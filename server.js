@@ -21,7 +21,9 @@ let lastSeenData = {};
 let initialized = false;
 let latestRawData = [];
 
-const MS_IN_WEEK = 7 * 24 * 60 * 60 * 1000; // 168 hours
+const excludedUsernames = ["azisai205"]; // ✅ Exclude list
+
+const MS_IN_WEEK = 7 * 24 * 60 * 60 * 1000;
 const MS_EXTRA_BUFFER = 12 * 60 * 60 * 1000;
 
 // 🔐 Mask username: first 2 + "***" + last 2
@@ -35,7 +37,7 @@ function getCurrentAndVisiblePeriod() {
   const nowJST = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   const year = nowJST.getUTCFullYear();
   const month = nowJST.getUTCMonth();
-  const baseStart = new Date(Date.UTC(year, month, 0, 15, 1, 0)); // JST 00:01 on 1st = UTC 15:01 on 0th
+  const baseStart = new Date(Date.UTC(year, month, 0, 15, 1, 0)); // JST 00:01 on 1st
 
   for (let i = 0; i < 4; i++) {
     const start = new Date(baseStart.getTime() + i * MS_IN_WEEK);
@@ -72,7 +74,10 @@ async function fetchAndUpdateTickets() {
       },
     });
 
-    const data = response.data.filter(user => user.username !== "azisai205");
+    const data = response.data.filter(
+      user => !excludedUsernames.includes(user.username)
+    );
+
     latestRawData = data;
     let newTicketsCount = 0;
 
