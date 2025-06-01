@@ -128,6 +128,23 @@ app.get("/raffle/tickets", (req, res) => {
   res.json(output);
 });
 
+app.get("/raffle/ticketsnoast", (req, res) => {
+  const counts = {};
+
+  raffleTickets.forEach(({ username }) => {
+    if (username === "azisai205") return;
+    counts[username] = (counts[username] || 0) + 1;
+  });
+
+  const output = Object.entries(counts).map(([username, count]) => ({
+    username,
+    ticketCount: count,
+  }));
+
+  res.json(output);
+});
+
+
 app.get("/raffle/user/:username", (req, res) => {
   const name = req.params.username;
   const count = raffleTickets.filter(t => t.username === name).length;
