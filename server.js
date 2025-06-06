@@ -20,6 +20,9 @@ let raffleTickets = [];
 let lastSeenData = {};
 let initialized = false;
 let latestRawData = [];
+let currentWinners = null;
+let currentWinnerPhase = null;
+
 
 const excludedUsernames = ["azisai205"]; // ✅ Exclude list
 
@@ -155,6 +158,32 @@ app.get("/raffle/winner", (req, res) => {
   if (raffleTickets.length === 0) return res.json({ error: "No tickets yet" });
   const winner = raffleTickets[Math.floor(Math.random() * raffleTickets.length)];
   res.json({ winner: { ticket: winner.ticket, username: maskUsername(winner.username) } });
+});
+
+app.get("/winners", (req, res) => {
+  const { week, start, visibleUntil } = getCurrentAndVisiblePeriod();
+  if (!week || !start || !visibleUntil) return res.json([]);
+
+  const periodKey = `week${week}`;
+  const now = new Date();
+
+  // Only allow drawing winners during active + visible period
+  if (now >= start && now < visibleUntil) {
+    if (currentWinners && currentWinnerPhase === periodKey) return res.json(currentWinners);
+    if (raffleTickets.length < 3) return res.json([]);
+    
+    const shuffled = [...raffleTickets];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    
+    currentWinners = shuffled.slice(0, 3);
+    currentWinnerPhase = periodKey;
+    return res.json(currentWinners);
+  }
+
+  res.json([]); // Outside valid display window
 });
 
 app.get("/wager", (req, res) => {
