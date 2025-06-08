@@ -22,6 +22,8 @@ let initialized = false;
 let latestRawData = [];
 let currentWinners = null;
 let currentWinnerPhase = null;
+let monthlyWinners = {};
+let weeklyTicketSnapshots = {};
 
 
 const excludedUsernames = ["azisai205"]; // ✅ Exclude list
@@ -34,6 +36,30 @@ function maskUsername(username) {
   if (username.length <= 4) return username;
   return username.slice(0, 2) + "***" + username.slice(-2);
 }
+
+function pickRandomUniqueWinners(tickets, count = 3) {
+  const userTicketsMap = {};
+
+  for (const ticket of tickets) {
+    if (!userTicketsMap[ticket.username]) {
+      userTicketsMap[ticket.username] = true;
+    }
+  }
+
+  const uniqueUsers = Object.keys(userTicketsMap);
+  const winners = [];
+
+  while (uniqueUsers.length > 0 && winners.length < count) {
+    const index = Math.floor(Math.random() * uniqueUsers.length);
+    const username = uniqueUsers[index];
+    winners.push({ username: maskUsername(username) });
+    uniqueUsers.splice(index, 1);
+  }
+
+  return winners;
+}
+
+
 
 function getCurrentAndVisiblePeriod() {
   const now = new Date();
@@ -160,40 +186,64 @@ app.get("/raffle/winner", (req, res) => {
   res.json({ winner: { ticket: winner.ticket, username: maskUsername(winner.username) } });
 });
 
-app.get("/winners", (req, res) => {
-  const now = new Date();
-  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  const year = jstNow.getUTCFullYear();
-  const month = jstNow.getUTCMonth();
+    app.get("/winners", (req, res) => {
+      const now = new Date();
+      const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+      const year = jstNow.getUTCFullYear();
+      const month = jstNow.getUTCMonth();
+      const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-  const weekWindows = [
-    { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)), end: new Date(Date.UTC(year, month, 8, 3, 1)) },
-    { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)), end: new Date(Date.UTC(year, month, 15, 3, 1)) },
-    { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)), end: new Date(Date.UTC(year, month, 22, 3, 1)) },
-    {
-      week: 4,
-      start: new Date(Date.UTC(year, month, 28, 15, 1)), // June 29 JST 00:01
-      end: new Date(Date.UTC(year, month + 1, 0, 15, 1))  // July 1 JST 00:01
-    }
-  ];
+      const weekWindows = [
+        { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)), end: new Date(Date.UTC(year, month, 8, 3, 1)) },
+        { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)), end: new Date(Date.UTC(year, month, 15, 3, 1)) },
+        { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)), end: new Date(Date.UTC(year, month, 22, 3, 1)) },
+        { week: 4, start: new Date(Date.UTC(year, month, 28, 15, 1)), end: new Date(Date.UTC(year, month + 1, 0, 15, 1)) }
+      ];
 
-  const current = weekWindows.find(({ start, end }) => jstNow >= start && jstNow < end);
-  if (!current) return res.json([]); // Not in any winner period
+      // Reset monthly data if month changed
+      const existingMonth = Object.keys(monthlyWinners)[0];
+      if (existingMonth && existingMonth !== monthKey) {
+        console.log(`🔄 Resetting winners for new month: ${monthKey}`);
+        monthlyWinners = {};
+        weeklyTicketSnapshots = {};
+      }
 
-  const periodKey = `week${current.week}`;
-  if (currentWinners && currentWinnerPhase === periodKey) return res.json(currentWinners);
-  if (raffleTickets.length < 3) return res.json([]);
+      if (!monthlyWinners[monthKey]) monthlyWinners[monthKey] = {};
+      if (!weeklyTicketSnapshots[monthKey]) weeklyTicketSnapshots[monthKey] = {};
 
-  const shuffled = [...raffleTickets];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+      const results = [];
 
-  currentWinners = shuffled.slice(0, 3);
-  currentWinnerPhase = periodKey;
-  res.json(currentWinners);
-});
+      for (const { week, start, end } of weekWindows) {
+        const weekKey = `week${week}`;
+
+        if (jstNow >= end) {
+          // Freeze ticket pool for that week
+          if (!weeklyTicketSnapshots[monthKey][weekKey]) {
+            weeklyTicketSnapshots[monthKey][weekKey] = [...raffleTickets];
+            console.log(`📸 Snapshot saved for ${monthKey} ${weekKey} with ${raffleTickets.length} tickets`);
+          }
+
+          // Lock winners from that frozen pool
+          if (!monthlyWinners[monthKey][weekKey]) {
+            const tickets = weeklyTicketSnapshots[monthKey][weekKey];
+            if (tickets && tickets.length >= 3) {
+              monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
+            }
+          }
+        }
+
+        // Include the week in the response if winners exist
+        if (monthlyWinners[monthKey][weekKey]) {
+          results.push({
+            week,
+            winners: monthlyWinners[monthKey][weekKey]
+          });
+        }
+      }
+
+      res.json(results);
+    });
+
 
 app.get("/wager", (req, res) => {
   const output = latestRawData.map(user => ({
