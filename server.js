@@ -38,26 +38,33 @@ function maskUsername(username) {
 }
 
 function pickRandomUniqueWinners(tickets, count = 3) {
-  const userTicketsMap = {};
-
-  for (const ticket of tickets) {
-    if (!userTicketsMap[ticket.username]) {
-      userTicketsMap[ticket.username] = true;
-    }
-  }
-
-  const uniqueUsers = Object.keys(userTicketsMap);
   const winners = [];
+  const picked = new Set();
 
-  while (uniqueUsers.length > 0 && winners.length < count) {
-    const index = Math.floor(Math.random() * uniqueUsers.length);
-    const username = uniqueUsers[index];
-    winners.push({ username: maskUsername(username) });
-    uniqueUsers.splice(index, 1);
+  while (winners.length < count && tickets.length > 0) {
+    const randomIndex = Math.floor(Math.random() * tickets.length);
+    const ticket = tickets[randomIndex];
+
+    // Only allow unique usernames
+    if (!picked.has(ticket.username)) {
+      picked.add(ticket.username);
+      winners.push({ username: maskUsername(ticket.username) });
+    }
+
+    // If not enough unique users, allow duplicates
+    if (picked.size >= new Set(tickets.map(t => t.username)).size) {
+      const remaining = count - winners.length;
+      for (let i = 0; i < remaining; i++) {
+        const fallbackTicket = tickets[Math.floor(Math.random() * tickets.length)];
+        winners.push({ username: maskUsername(fallbackTicket.username) });
+      }
+      break;
+    }
   }
 
   return winners;
 }
+
 
 
 
