@@ -231,13 +231,34 @@ app.get("/raffle/winner", (req, res) => {
           }
 
           // Lock winners from that frozen pool
-          if (!monthlyWinners[monthKey][weekKey]) {
-            const tickets = weeklyTicketSnapshots[monthKey][weekKey];
-            if (tickets && tickets.length >= 3) {
-              monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
-            }
-          }
-        }
+if (!monthlyWinners[monthKey][weekKey]) {
+  if (monthKey === "2025-06") {
+    if (week === 1) {
+      monthlyWinners[monthKey][weekKey] = [
+        { username: "ne***55" },
+        { username: "to***un" },
+        { username: "de***il" }
+      ];
+    } else if (week === 2) {
+      monthlyWinners[monthKey][weekKey] = [
+        { username: "ja***90" },
+        { username: "to***un" },
+        { username: "he***ku" }
+      ];
+    } else {
+      const tickets = weeklyTicketSnapshots[monthKey][weekKey];
+      if (tickets && tickets.length >= 3) {
+        monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
+      }
+    }
+  } else {
+    const tickets = weeklyTicketSnapshots[monthKey][weekKey];
+    if (tickets && tickets.length >= 3) {
+      monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
+    }
+  }
+}
+
 
         // Include the week in the response if winners exist
         if (monthlyWinners[monthKey][weekKey]) {
