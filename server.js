@@ -187,95 +187,71 @@ app.get("/raffle/user/:username", (req, res) => {
   res.json({ username: maskUsername(name), ticketCount: count });
 });
 
-app.get("/raffle/winner", (req, res) => {
-  if (raffleTickets.length === 0) return res.json({ error: "No tickets yet" });
-  const winner = raffleTickets[Math.floor(Math.random() * raffleTickets.length)];
-  res.json({ winner: { ticket: winner.ticket, username: maskUsername(winner.username) } });
-});
+app.get("/winners", (req, res) => {
+  const now = new Date();
+  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = jstNow.getUTCFullYear();
+  const month = jstNow.getUTCMonth();
+  const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-    app.get("/winners", (req, res) => {
-      const now = new Date();
-      const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-      const year = jstNow.getUTCFullYear();
-      const month = jstNow.getUTCMonth();
-      const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const weekWindows = [
+    { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)), end: new Date(Date.UTC(year, month, 8, 3, 1)) },
+    { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)), end: new Date(Date.UTC(year, month, 15, 3, 1)) },
+    { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)), end: new Date(Date.UTC(year, month, 22, 3, 1)) },
+    { week: 4, start: new Date(Date.UTC(year, month, 28, 15, 1)), end: new Date(Date.UTC(year, month + 1, 0, 15, 1)) }
+  ];
 
-      const weekWindows = [
-        { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)), end: new Date(Date.UTC(year, month, 8, 3, 1)) },
-        { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)), end: new Date(Date.UTC(year, month, 15, 3, 1)) },
-        { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)), end: new Date(Date.UTC(year, month, 22, 3, 1)) },
-        { week: 4, start: new Date(Date.UTC(year, month, 28, 15, 1)), end: new Date(Date.UTC(year, month + 1, 0, 15, 1)) }
-      ];
-
-      // Reset monthly data if month changed
-      const existingMonth = Object.keys(monthlyWinners)[0];
-      if (existingMonth && existingMonth !== monthKey) {
-        console.log(`🔄 Resetting winners for new month: ${monthKey}`);
-        monthlyWinners = {};
-        weeklyTicketSnapshots = {};
-      }
-
-      if (!monthlyWinners[monthKey]) monthlyWinners[monthKey] = {};
-      if (!weeklyTicketSnapshots[monthKey]) weeklyTicketSnapshots[monthKey] = {};
-
-      const results = [];
-
-      for (const { week, start, end } of weekWindows) {
-        const weekKey = `week${week}`;
-
-        if (jstNow >= end) {
-          // Freeze ticket pool for that week
-          if (!weeklyTicketSnapshots[monthKey][weekKey]) {
-            weeklyTicketSnapshots[monthKey][weekKey] = [...raffleTickets];
-            console.log(`📸 Snapshot saved for ${monthKey} ${weekKey} with ${raffleTickets.length} tickets`);
-          }
-
-          // Lock winners from that frozen pool
-if (monthKey === "2025-06" && (week === 1 || week === 2)) {
-  if (!weeklyTicketSnapshots[monthKey][weekKey]) {
-    weeklyTicketSnapshots[monthKey][weekKey] = [...raffleTickets];
-    console.log(`📸 Snapshot saved for ${monthKey} ${weekKey} with ${raffleTickets.length} tickets`);
+  const existingMonth = Object.keys(monthlyWinners)[0];
+  if (existingMonth && existingMonth !== monthKey) {
+    console.log(`🔄 Resetting winners for new month: ${monthKey}`);
+    monthlyWinners = {};
+    weeklyTicketSnapshots = {};
   }
 
-  // Hardcoded winners for June 2025
-  if (week === 1) {
-    monthlyWinners[monthKey][weekKey] = [
-      { username: "ne***55" },
-      { username: "to***un" },
-      { username: "de***il" }
-    ];
-  } else if (week === 2) {
-    monthlyWinners[monthKey][weekKey] = [
-      { username: "ja***90" },
-      { username: "to***un" },
-      { username: "he***ku" }
-    ];
-  }
-} else {
-  if (!monthlyWinners[monthKey][weekKey]) {
-    if (!weeklyTicketSnapshots[monthKey][weekKey]) {
+  if (!monthlyWinners[monthKey]) monthlyWinners[monthKey] = {};
+  if (!weeklyTicketSnapshots[monthKey]) weeklyTicketSnapshots[monthKey] = {};
+
+  const results = [];
+
+  for (const { week, start, end } of weekWindows) {
+    const weekKey = `week${week}`;
+
+    if (jstNow >= end) {
+      // Always refresh snapshot
       weeklyTicketSnapshots[monthKey][weekKey] = [...raffleTickets];
       console.log(`📸 Snapshot saved for ${monthKey} ${weekKey} with ${raffleTickets.length} tickets`);
-    }
 
-    const tickets = weeklyTicketSnapshots[monthKey][weekKey];
-    if (tickets && tickets.length >= 3) {
-      monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
-    }
-  }
-}
-
-        // Include the week in the response if winners exist
-        if (monthlyWinners[monthKey][weekKey]) {
-          results.push({
-            week,
-            winners: monthlyWinners[monthKey][weekKey]
-          });
+      // 🎯 Override only for June 2025
+      if (monthKey === "2025-06" && week === 1) {
+        monthlyWinners[monthKey][weekKey] = [
+          { username: "ne***55" },
+          { username: "to***un" },
+          { username: "de***il" }
+        ];
+      } else if (monthKey === "2025-06" && week === 2) {
+        monthlyWinners[monthKey][weekKey] = [
+          { username: "ja***90" },
+          { username: "to***un" },
+          { username: "he***ku" }
+        ];
+      } else {
+        const tickets = weeklyTicketSnapshots[monthKey][weekKey];
+        if (tickets && tickets.length >= 3) {
+          monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
         }
       }
+    }
 
-      res.json(results);
-    });
+    if (monthlyWinners[monthKey][weekKey]) {
+      results.push({
+        week,
+        winners: monthlyWinners[monthKey][weekKey]
+      });
+    }
+  }
+
+  res.json(results);
+});
 
 
 app.get("/wager", (req, res) => {
