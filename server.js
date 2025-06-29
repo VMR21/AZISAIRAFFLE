@@ -189,39 +189,36 @@ app.get("/raffle/user/:username", (req, res) => {
 
 app.get("/winners", (req, res) => {
   const now = new Date();
-  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const jstNow = new Date(now.getTime() + 9 * 60 * 60 * 1000); // JST
   const year = jstNow.getUTCFullYear();
   const month = jstNow.getUTCMonth();
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
   const weekWindows = [
-    { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)), end: new Date(Date.UTC(year, month, 8, 3, 1)) },
-    { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)), end: new Date(Date.UTC(year, month, 15, 3, 1)) },
-    { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)), end: new Date(Date.UTC(year, month, 22, 3, 1)) },
-    { week: 4, start: new Date(Date.UTC(year, month, 28, 15, 1)), end: new Date(Date.UTC(year, month + 1, 0, 15, 1)) }
+    { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)) },
+    { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)) },
+    { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)) },
+    { week: 4, start: new Date(Date.UTC(year, month, 28, 15, 1)) }
   ];
 
-  const existingMonth = Object.keys(monthlyWinners)[0];
-  if (existingMonth && existingMonth !== monthKey) {
-    console.log(`🔄 Resetting winners for new month: ${monthKey}`);
-    monthlyWinners = {};
-    weeklyTicketSnapshots = {};
+  // Auto-reset winners and snapshots when month changes
+  if (!monthlyWinners[monthKey]) {
+    console.log(`🔄 New month detected (${monthKey}), resetting memory.`);
+    monthlyWinners = { [monthKey]: {} };
+    weeklyTicketSnapshots = { [monthKey]: {} };
   }
-
-  if (!monthlyWinners[monthKey]) monthlyWinners[monthKey] = {};
-  if (!weeklyTicketSnapshots[monthKey]) weeklyTicketSnapshots[monthKey] = {};
 
   const results = [];
 
-  for (const { week, start, end } of weekWindows) {
+  for (const { week, start } of weekWindows) {
     const weekKey = `week${week}`;
 
-    if (jstNow >= end) {
-      // Always refresh snapshot
+    // Pick winners only if time passed and not already picked
+    if (jstNow >= start && !monthlyWinners[monthKey][weekKey]) {
       weeklyTicketSnapshots[monthKey][weekKey] = [...raffleTickets];
       console.log(`📸 Snapshot saved for ${monthKey} ${weekKey} with ${raffleTickets.length} tickets`);
 
-      // 🎯 Override only for June 2025
+      // Hardcoded winners for June 2025
       if (monthKey === "2025-06" && week === 1) {
         monthlyWinners[monthKey][weekKey] = [
           { username: "ne***55" },
@@ -234,6 +231,12 @@ app.get("/winners", (req, res) => {
           { username: "to***un" },
           { username: "he***ku" }
         ];
+      } else if (monthKey === "2025-06" && week === 3) {
+        monthlyWinners[monthKey][weekKey] = [
+          { username: "si***ta" },
+          { username: "ga***15" },
+          { username: "mu***68" }
+        ];
       } else {
         const tickets = weeklyTicketSnapshots[monthKey][weekKey];
         if (tickets && tickets.length >= 3) {
@@ -242,6 +245,7 @@ app.get("/winners", (req, res) => {
       }
     }
 
+    // Push result if available
     if (monthlyWinners[monthKey][weekKey]) {
       results.push({
         week,
@@ -252,6 +256,7 @@ app.get("/winners", (req, res) => {
 
   res.json(results);
 });
+
 
 
 app.get("/wager", (req, res) => {
