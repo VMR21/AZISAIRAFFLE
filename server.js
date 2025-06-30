@@ -194,76 +194,85 @@ app.get("/winners", (req, res) => {
   const month = jstNow.getUTCMonth();
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
 
-  const weekWindows = [
-    { week: 1, start: new Date(Date.UTC(year, month, 7, 15, 1)) },
-    { week: 2, start: new Date(Date.UTC(year, month, 14, 15, 1)) },
-    { week: 3, start: new Date(Date.UTC(year, month, 21, 15, 1)) },
-    { week: 4, start: new Date(Date.UTC(year, month, 28, 15, 1)) }
-  ];
+  // 🔁 Keep showing June winners until July 6, 2025 at 15:00 UTC
+  const nowUTC = new Date();
+  const cutoffUTC = new Date(Date.UTC(2025, 6, 6, 15, 0)); // July 6, 2025 15:00 UTC
+  let effectiveMonthKey = monthKey;
+  let effectiveYear = year;
+  let effectiveMonth = month;
 
-  // Auto-reset winners and snapshots when month changes
-  if (!monthlyWinners[monthKey]) {
-    console.log(`🔄 New month detected (${monthKey}), resetting memory.`);
-    monthlyWinners = { [monthKey]: {} };
-    weeklyTicketSnapshots = { [monthKey]: {} };
+  if (monthKey === "2025-07" && nowUTC < cutoffUTC) {
+    console.log("⏳ Still showing June winners (until July 6, 15:00 UTC)");
+    effectiveMonthKey = "2025-06";
+    effectiveYear = 2025;
+    effectiveMonth = 5; // June is month 5 (0-indexed)
   }
+
+  if (!monthlyWinners[effectiveMonthKey]) {
+    console.log(`🔄 First-time load for ${effectiveMonthKey}`);
+    monthlyWinners[effectiveMonthKey] = {};
+    weeklyTicketSnapshots[effectiveMonthKey] = {};
+  }
+
+  const weekWindows = [
+    { week: 1, start: new Date(Date.UTC(effectiveYear, effectiveMonth, 7, 15, 1)) },
+    { week: 2, start: new Date(Date.UTC(effectiveYear, effectiveMonth, 14, 15, 1)) },
+    { week: 3, start: new Date(Date.UTC(effectiveYear, effectiveMonth, 21, 15, 1)) },
+    { week: 4, start: new Date(Date.UTC(effectiveYear, effectiveMonth, 28, 15, 1)) }
+  ];
 
   const results = [];
 
   for (const { week, start } of weekWindows) {
     const weekKey = `week${week}`;
 
-    // Pick winners only if time passed and not already picked
-    if (jstNow >= start && !monthlyWinners[monthKey][weekKey]) {
-      weeklyTicketSnapshots[monthKey][weekKey] = [...raffleTickets];
-      console.log(`📸 Snapshot saved for ${monthKey} ${weekKey} with ${raffleTickets.length} tickets`);
+    if (jstNow >= start && !monthlyWinners[effectiveMonthKey][weekKey]) {
+      weeklyTicketSnapshots[effectiveMonthKey][weekKey] = [...raffleTickets];
+      console.log(`📸 Snapshot saved for ${effectiveMonthKey} ${weekKey} with ${raffleTickets.length} tickets`);
 
       // Hardcoded winners for June 2025
-      if (monthKey === "2025-06" && week === 1) {
-        monthlyWinners[monthKey][weekKey] = [
+      if (effectiveMonthKey === "2025-06" && week === 1) {
+        monthlyWinners[effectiveMonthKey][weekKey] = [
           { username: "ne***55" },
           { username: "to***un" },
           { username: "de***il" }
         ];
-      } else if (monthKey === "2025-06" && week === 2) {
-        monthlyWinners[monthKey][weekKey] = [
+      } else if (effectiveMonthKey === "2025-06" && week === 2) {
+        monthlyWinners[effectiveMonthKey][weekKey] = [
           { username: "ja***90" },
           { username: "to***un" },
           { username: "he***ku" }
         ];
-      } else if (monthKey === "2025-06" && week === 3) {
-        monthlyWinners[monthKey][weekKey] = [
+      } else if (effectiveMonthKey === "2025-06" && week === 3) {
+        monthlyWinners[effectiveMonthKey][weekKey] = [
           { username: "si***ta" },
           { username: "ga***15" },
           { username: "mu***68" }
         ];
-      } else if (monthKey === "2025-06" && week === 4) {
-        monthlyWinners[monthKey][weekKey] = [
+      } else if (effectiveMonthKey === "2025-06" && week === 4) {
+        monthlyWinners[effectiveMonthKey][weekKey] = [
           { username: "ga***15" },
           { username: "mo***22" },
           { username: "si***ta" }
         ];
       } else {
-        const tickets = weeklyTicketSnapshots[monthKey][weekKey];
+        const tickets = weeklyTicketSnapshots[effectiveMonthKey][weekKey];
         if (tickets && tickets.length >= 3) {
-          monthlyWinners[monthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
+          monthlyWinners[effectiveMonthKey][weekKey] = pickRandomUniqueWinners(tickets, 3);
         }
       }
     }
 
-    // Push result if available
-    if (monthlyWinners[monthKey][weekKey]) {
+    if (monthlyWinners[effectiveMonthKey][weekKey]) {
       results.push({
         week,
-        winners: monthlyWinners[monthKey][weekKey]
+        winners: monthlyWinners[effectiveMonthKey][weekKey]
       });
     }
   }
 
   res.json(results);
 });
-
-
 
 app.get("/wager", (req, res) => {
   const output = latestRawData.map(user => ({
