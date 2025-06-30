@@ -237,6 +237,12 @@ app.get("/winners", (req, res) => {
           { username: "ga***15" },
           { username: "mu***68" }
         ];
+      } else if (monthKey === "2025-06" && week === 4) {
+        monthlyWinners[monthKey][weekKey] = [
+          { username: "ga***15" },
+          { username: "mo***22" },
+          { username: "si***ta" }
+        ];
       } else {
         const tickets = weeklyTicketSnapshots[monthKey][weekKey];
         if (tickets && tickets.length >= 3) {
